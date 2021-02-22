@@ -1,0 +1,94 @@
+global class SubscriptionComplianceCheck implements Database.Batchable<sObject> {
+    private static final String ELEMENTS_MANQUANTS = 'Éléments manquants';
+    private static final String IMMO_NEUF = 'Conformité Immo neuf';
+    
+    global List<SBQQ__Subscription__c> start(Database.BatchableContext cnx) { //Author:Oumesh Jhundoo ,Description : query modified 
+         return Database.getQueryLocator(
+		 'SELECT Id, CompanyAddressCity__c, OrderNumber__c, CompanyAddressCountry__c, CompanyPhone__c, ContactGender__c, ContactLastName__c, '+
+         'ContactFirstName__c, Companyindustry__c, CompanyName__c, PrintVolume__c, BroadcastSoftware__c, PromoterDescription__c, SBQQ__RequiredById__c,'+
+         'FlowType__c, BroadcastPartner__c, PostalCode__c, Souscription_Conforme__c, ComplianceProcess__c, Status__c, AccessStoreState__c,'+
+         'ProductWorkflow__c, AccessUserId__c, KilometerRadius__c, AccessStoreId__c, CompanyAddressStreet__c, CompanyAddressZipcode__c, LeadPhone__c,'+
+         'ContractEmail__c, CompanySegment__c, CompanySiret__c FROM SBQQ__Subscription__c WHERE Status__c = :ELEMENTS_MANQUANTS'+
+         'AND Souscription_Conforme__c = false'
+		 );
+    }
+    
+    global void execute(Database.BatchableContext cnx, List<SBQQ__Subscription__c> scope) {
+        try {
+			List<String> requiredByIdList = new List<String>();						//Author:Oumesh Jhundoo ,Description : list created
+            List<SBQQ__Subscription__c> subs = new List<SBQQ__Subscription__c>();	
+			List<SBQQ__Subscription__c> subImmoList = new List<SBQQ__Subscription__c>();//Author:Oumesh Jhundoo ,Description : list created
+			List<SBQQ__Subscription__c> subsList = new List<SBQQ__Subscription__c>();//Author:Oumesh Jhundoo ,Description : list created
+            for(SBQQ__Subscription__c sub : scope) {
+               if (sub.ComplianceProcess__c == IMMO_NEUF) {
+                    //SBQQ__Subscription__c subImmo = setConformiteImmoNeuf(sub);   	//Author:Oumesh Jhundoo ,Description : line commented
+					subImmoList.added(sub);												//Author:Oumesh Jhundoo ,Description : add to list
+					/*											//Author:Oumesh Jhundoo ,Description : comment Start
+                    if (subImmo != null) {
+                        if (sub.SBQQ__RequiredById__c != null) {
+                           setParentConforme(sub.SBQQ__RequiredById__c);
+                       }
+                    } */										//Author:Oumesh Jhundoo ,Description : comment End
+                }
+            }
+			if(subImmoList.size()>0){ 			//Author:Oumesh Jhundoo ,Description : if condition to check if ComplianceProcess__c == IMMO_NEUF exist in the list
+				List<SBQQ__Subscription__c> ConformiteImmoNeufList = setConformiteImmoNeuf(subImmoList);		//Author:Oumesh Jhundoo ,Description : called method setConformiteImmoNeuf
+				for(SBQQ__Subscription__c sub_1 : ConformiteImmoNeufList){					//Author:Oumesh Jhundoo ,Description : loop
+					if(sub_1 != null && sub.SBQQ__RequiredById__c != null){					//Author:Oumesh Jhundoo ,Description : if condition to check if SBQQ__Subscription__c is not null and SBQQ__RequiredById__c is not null
+						subsList.add(sub);													//Author:Oumesh Jhundoo ,Description : add to list
+					}
+				}
+
+				for(SBQQ__Subscription__c sub1 : subsList){						//Author:Oumesh Jhundoo ,Description : loop
+					requiredByIdList.add(sub1.SBQQ__RequiredById__c);			//Author:Oumesh Jhundoo ,Description : add to list
+				}
+				
+				setParentConforme(requiredByIdList); 							//Author:Oumesh Jhundoo ,Description : called method setParentConforme
+			}
+
+			
+        } catch(Exception e) {
+            Logs.error('SubscriptionComplianceCheck','Batch Compliance Check', e);
+        }
+    }
+    
+    global void finish(Database.BatchableContext cnx) {
+    }
+    
+
+    private List<SBQQ__Subscription__c> setConformiteImmoNeuf(List<SBQQ__Subscription__c> subList) {
+		List<SBQQ__Subscription__c> sub_0 = new List<SBQQ__Subscription__c>();
+		for(SBQQ__Subscription__c sub : subList){
+			if(sub.PromoterDescription__c != null && sub.FlowType__c != null && sub.ProductWorkflow__c != null
+			  && sub.ContractEmail__c != null && sub.CompanySiret__c != null && sub.CompanyName__c != null
+			  && sub.CompanyAddressStreet__c != null && sub.CompanyAddressZipcode__c != null && sub.CompanyAddressCity__c != null
+			  && sub.CompanyPhone__c != null && sub.ContactGender__c != null && sub.ContactFirstName__c != null 
+			  && sub.ContactLastName__c != null && sub.LeadPhone__c != null) {
+				sub.Souscription_Conforme__c = true;
+				sub_0.add(sub);	//Author:Oumesh Jhundoo ,Description : add to list
+				//update sub; 	//Author:Oumesh Jhundoo ,Description : line commented
+				//return sub;	//Author:Oumesh Jhundoo ,Description : line commented
+			}
+		}
+		if(sub_0.Size()){		//Author:Oumesh Jhundoo ,Description : if condition added
+			Update sub_0;		//Author:Oumesh Jhundoo ,Description : list updated
+			return sub_0;		//Author:Oumesh Jhundoo ,Description : return List
+		}
+        return null;
+    }
+    
+    private void setParentConforme(List<String> parentIdList) {						//Author:Oumesh Jhundoo ,Description : parameter changed
+		List<SBQQ__Subscription__c> subsbqq = new List<SBQQ__Subscription__c>();	//Author:Oumesh Jhundoo ,Description : list created
+        SBQQ__Subscription__c[] parentSub = [SELECT Id, Souscription_Conforme__c FROM SBQQ__Subscription__c WHERE Status__c = :ELEMENTS_MANQUANTS 
+                                           AND Souscription_Conforme__c = false AND Id IN:parentIdList]; //Author:Oumesh Jhundoo ,Description : Condition changed added parentIdList
+        if (parentSub.size() > 0) {
+			for(SBQQ__Subscription__c sub2 : parentSub){				//Author:Oumesh Jhundoo ,Description : loop
+				sub2.Souscription_Conforme__c = true;
+				subsbqq.add(sub2);										//Author:Oumesh Jhundoo ,Description : add to list
+			}
+            
+            //UPDATE parentSub[0];										//Author:Oumesh Jhundoo ,Description : line commented
+			UPDATE sub2;												//Author:Oumesh Jhundoo ,Description : update list
+        }
+    }
+}
